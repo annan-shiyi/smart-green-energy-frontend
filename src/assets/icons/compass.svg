@@ -1,0 +1,23 @@
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <title>Compass icon</title>
+  <circle cx="128" cy="128" r="112" fill="#26313B" fill-opacity="0.72"/>
+  <circle cx="128" cy="128" r="92" fill="#F7F8FA"/>
+  <circle cx="128" cy="128" r="92" stroke="#3E4752" stroke-width="5"/>
+  <circle cx="128" cy="128" r="58" fill="none" stroke="#5E6874" stroke-width="2.5" stroke-dasharray="5 7" opacity="0.9"/>
+  <text x="128" y="37" text-anchor="middle" font-size="21" font-family="Arial, Helvetica, sans-serif" font-weight="700" fill="#2B333C">N</text>
+  <text x="128" y="235" text-anchor="middle" font-size="16" font-family="Arial, Helvetica, sans-serif" font-weight="700" fill="#F7F8FA" opacity="0.9">S</text>
+  <text x="39" y="134" text-anchor="middle" font-size="16" font-family="Arial, Helvetica, sans-serif" font-weight="700" fill="#F7F8FA" opacity="0.9">W</text>
+  <text x="217" y="134" text-anchor="middle" font-size="16" font-family="Arial, Helvetica, sans-serif" font-weight="700" fill="#F7F8FA" opacity="0.9">E</text>
+  <line x1="128" y1="54" x2="128" y2="72" stroke="#3E4752" stroke-width="4" stroke-linecap="round"/>
+  <line x1="128" y1="184" x2="128" y2="202" stroke="#3E4752" stroke-width="4" stroke-linecap="round"/>
+  <line x1="54" y1="128" x2="72" y2="128" stroke="#3E4752" stroke-width="4" stroke-linecap="round"/>
+  <line x1="184" y1="128" x2="202" y2="128" stroke="#3E4752" stroke-width="4" stroke-linecap="round"/>
+  <g transform="rotate(34 128 128)">
+    <path d="M128 63L146 128L128 193L110 128L128 63Z" fill="#2B333C"/>
+    <path d="M128 63L146 128L128 116L110 128L128 63Z" fill="#FFFFFF"/>
+    <path d="M128 193L110 128L128 140L146 128L128 193Z" fill="#B8C0C9"/>
+    <path d="M128 63L146 128L128 193L110 128L128 63Z" stroke="#2B333C" stroke-width="4" stroke-linejoin="round"/>
+  </g>
+  <circle cx="128" cy="128" r="17" fill="#F7F8FA" stroke="#2B333C" stroke-width="5"/>
+  <circle cx="128" cy="128" r="5" fill="#2B333C"/>
+</svg>
