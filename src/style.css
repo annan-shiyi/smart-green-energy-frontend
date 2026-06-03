@@ -1,0 +1,70 @@
+:root {
+  /* 颜色系统 - 暗色 HUD 风格 */
+  --bg: #050b1a;
+  --topbar-bg: #1C2531;
+  --statusbar-bg: #282B33;
+
+  --panel-bg: rgba(20, 28, 42, 0.78);
+  --panel-border: rgba(101, 160, 200, 0.25);
+  --panel-shadow: rgba(0, 0, 0, 0.45);
+
+  /* 低碳生活三块面板统一背景色 — 调这一个值即可(光伏铺设概况/电量测算/经济测算) */
+  --panel-fill: rgba(8, 20, 38, 0.35);
+
+  --text: #e6f1ff;
+  --muted: #b8c3d4;
+  --weak: #6a7488;
+  --separator: #3a4255;
+
+  --accent: #40e0d0;
+  --accent-strong: #4ad6e5;
+  --accent-soft: rgba(64, 224, 208, 0.18);
+
+  --warning: #ff7676;
+  --warning-strong: #ff4d4f;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  font-family: 'PingFang SC', 'Microsoft YaHei', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: var(--text);
+  background: var(--bg);
+  overflow: hidden;
+}
+
+button {
+  cursor: pointer;
+  font-family: inherit;
+}
+
+input,
+select {
+  font-family: inherit;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
