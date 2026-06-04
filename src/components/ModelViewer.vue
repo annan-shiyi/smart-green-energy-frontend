@@ -25,8 +25,9 @@ import { applyTiandituBasemap } from '../utils/tianditu.js'
 import houseIcon from '../assets/icons/house.png'
 import houseRing from '../assets/icons/house-ring.svg'
 
-// 石岗村模型地址,从 .env 读取(VITE_TILESET_SHIGANG)
-const TILESET_URL = import.meta.env.VITE_TILESET_SHIGANG
+// 模型地址,从 .env 读取。当前统一用石盘滩,与村情村貌保持一致(VITE_TILESET_SHIPANTAN)
+// 注:VITE_TILESET_SHIGANG(石岗)暂时保留,待"村庄切换"功能上线后再用
+const TILESET_URL = import.meta.env.VITE_TILESET_SHIPANTAN
 
 // 石岗村模型中心点(用户指定)
 const MODEL_CENTER = {
@@ -36,8 +37,8 @@ const MODEL_CENTER = {
 }
 
 // 模型整体垂直偏移(米)。负值 = 往下沉,让模型边缘贴合天地图卫星底图。
-// 调试口诀:还悬空就更负(如 -40),沉太深陷进地里就往 0 调(如 -10 / 0)
-const MODEL_HEIGHT_OFFSET = -372
+// 调试口诀:还悬空就更负,沉太深陷进地里就往 0 调。当前为石盘滩模型,起调 -250
+const MODEL_HEIGHT_OFFSET = -250
 
 const props = defineProps({
   selectedRoof: { type: Object, default: null },
@@ -245,6 +246,13 @@ async function loadTileset() {
   // 注册"选屋顶"点击处理器(实际触发依赖 markerEntityMap,无标记时点击是 no-op)
   enableSelectHandler()
 
+  // 初始即要求显示屋顶标记(如低碳生活页 show-markers=true):模型就绪后立即渲染。
+  // watch(showMarkers) 非 immediate,当它恒为 true 时不会触发,这里兜底渲染。
+  if (props.showMarkers) {
+    if (!markerEntityMap.size) renderRoofMarkers()
+    setMarkersVisible(true)
+  }
+
   // 让按需渲染管线立刻刷一次
   viewer.scene.requestRender()
 }
@@ -345,7 +353,8 @@ function renderRoofMarkers() {
   roofList.forEach((roof) => {
     if (!roof.center) return
     const { lng, lat, height } = roof.center
-    const pos = Cesium.Cartesian3.fromDegrees(lng, lat, height + 6)
+    // 加上 MODEL_HEIGHT_OFFSET,让图标跟着下沉后的模型走,不再悬空
+    const pos = Cesium.Cartesian3.fromDegrees(lng, lat, height + 6 + MODEL_HEIGHT_OFFSET)
 
     const ring1 = buildRing(roof, pos, 0,   'ring1') // 主圈,起始相位 0
     const ring2 = buildRing(roof, pos, 1.0, 'ring2') // 副圈,相位差 1s
@@ -424,7 +433,7 @@ function flyToRoof(roof) {
   if (!viewer || viewer.isDestroyed() || !roof || !roof.center) return
   const { lng, lat, height } = roof.center
   viewer.camera.flyTo({
-    destination: Cesium.Cartesian3.fromDegrees(lng, lat - 0.0008, height + 220),
+    destination: Cesium.Cartesian3.fromDegrees(lng, lat - 0.0008, height + 220 + MODEL_HEIGHT_OFFSET),
     orientation: {
       heading: Cesium.Math.toRadians(0),
       pitch: Cesium.Math.toRadians(-55),

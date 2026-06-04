@@ -521,6 +521,8 @@ watch([selectedIds, ratio, range], renderBoth, { deep: true })
 
 .check-all {
   margin-left: auto;
+  /* 让开右上角的关闭按钮(×),避免与"全选"重叠 */
+  margin-right: 38px;
   display: flex;
   align-items: center;
   gap: 6px;

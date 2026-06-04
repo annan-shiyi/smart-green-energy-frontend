@@ -310,7 +310,8 @@ async function addMarkers() {
     const dispH = 56
     viewer.entities.add({
       id: `poi-${m.id}`,
-      position: Cesium.Cartesian3.fromDegrees(m.lng, m.lat, m.height),
+      // 加上 MODEL_HEIGHT_OFFSET,让图标跟着下沉后的模型走,不再悬空
+      position: Cesium.Cartesian3.fromDegrees(m.lng, m.lat, m.height + MODEL_HEIGHT_OFFSET),
       billboard: {
         image: canvas,
         width: dispH * ratio,

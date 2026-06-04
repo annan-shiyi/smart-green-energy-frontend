@@ -3,7 +3,7 @@
     <div class="panel-head">
       <span class="head-marker">▣</span>
       <span class="head-title">经济测算</span>
-      <span class="head-sub">Data Analysis</span>
+      <span class="head-sub">Economic Estimation</span>
     </div>
 
     <div class="unit-row">

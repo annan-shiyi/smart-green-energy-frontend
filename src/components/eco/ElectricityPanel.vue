@@ -3,7 +3,7 @@
     <div class="panel-head">
       <span class="head-marker">▣</span>
       <span class="head-title">电量测算</span>
-      <span class="head-sub">Data Analysis</span>
+      <span class="head-sub">Power Estimation</span>
     </div>
 
     <div class="body">
@@ -122,7 +122,8 @@ defineEmits(['open-multi-select'])
   color: rgba(205, 222, 240, 0.92);
 }
 .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
-.name { flex: 1; }
+/* 不再 flex:1 撑满,标签与数字紧挨,只留一点间距 */
+.name { margin-right: 10px; }
 .val { color: #eaf4ff; font-weight: 700; font-family: 'Consolas', monospace; }
 
 .calc-btn {
