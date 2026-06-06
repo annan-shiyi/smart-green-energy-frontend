@@ -232,7 +232,7 @@ function entranceFlyTo() {
   if (!viewer || viewer.isDestroyed() || !homeBoundingSphere) return
   const startOffset = new Cesium.HeadingPitchRange(
     Cesium.Math.toRadians(0),
-    Cesium.Math.toRadians(-78),
+    Cesium.Math.toRadians(-90), // 正摄(垂直俯瞰)入场
     homeBoundingSphere.radius * 4.5
   )
   viewer.camera.viewBoundingSphere(homeBoundingSphere, startOffset)
@@ -240,7 +240,7 @@ function entranceFlyTo() {
 
   const endOffset = new Cesium.HeadingPitchRange(
     Cesium.Math.toRadians(0),
-    Cesium.Math.toRadians(-45),
+    Cesium.Math.toRadians(-90), // 正摄(垂直俯瞰),与天地图吻合度最高
     homeBoundingSphere.radius * 2.0
   )
   viewer.camera.flyToBoundingSphere(homeBoundingSphere, { offset: endOffset, duration: 2.0 })
@@ -331,7 +331,7 @@ function flyToHome(animate) {
   if (!viewer || viewer.isDestroyed() || !homeBoundingSphere) return
   const offset = new Cesium.HeadingPitchRange(
     Cesium.Math.toRadians(0),
-    Cesium.Math.toRadians(-45),
+    Cesium.Math.toRadians(-90), // 正摄(垂直俯瞰),与天地图吻合度最高
     homeBoundingSphere.radius * 2.0
   )
   if (animate) {

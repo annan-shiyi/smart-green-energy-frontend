@@ -233,7 +233,7 @@ async function loadTileset() {
     const bs0 = tileset.boundingSphere
     const offset0 = new Cesium.HeadingPitchRange(
       Cesium.Math.toRadians(0),
-      Cesium.Math.toRadians(-45),
+      Cesium.Math.toRadians(-90), // 正摄(垂直俯瞰),与天地图吻合度最高
       bs0.radius * 2.0
     )
     viewer.camera.viewBoundingSphere(bs0, offset0)
@@ -436,7 +436,7 @@ function flyToRoof(roof) {
     destination: Cesium.Cartesian3.fromDegrees(lng, lat - 0.0008, height + 220 + MODEL_HEIGHT_OFFSET),
     orientation: {
       heading: Cesium.Math.toRadians(0),
-      pitch: Cesium.Math.toRadians(-55),
+      pitch: Cesium.Math.toRadians(-90), // 正摄(垂直俯瞰)
       roll: 0
     },
     duration: 1.2
@@ -514,7 +514,7 @@ function flyToModelCenter() {
   const bs = tileset.boundingSphere
   const offset = new Cesium.HeadingPitchRange(
     Cesium.Math.toRadians(0),
-    Cesium.Math.toRadians(-45),
+    Cesium.Math.toRadians(-90), // 正摄(垂直俯瞰)
     bs.radius * 2.0
   )
   viewer.camera.flyToBoundingSphere(bs, { offset, duration: 1.2 })
