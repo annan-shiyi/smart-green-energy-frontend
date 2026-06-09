@@ -14,8 +14,8 @@
     <!-- 选中屋顶 / 打开多选模态时压暗 3D 场景,做焦点引导 -->
     <div v-if="pvMode && (selectedRoof || multiSelectOpen)" class="scene-dim"></div>
 
-    <!-- 光伏测算模式(状态 C 起):左上概况卡 + 左侧模式按钮 -->
-    <template v-if="pvMode">
+    <!-- 光伏测算模式(状态 C 起):左上概况卡 + 左侧模式按钮。石盘滩为纯模型,不进数据态 -->
+    <template v-if="pvMode && showData">
       <OverviewPanel />
       <PVModeControls
         @exit="onExitPvMode"
@@ -36,6 +36,12 @@
 
     <!-- 顶部栏 -->
     <TopBar />
+
+    <!-- 地域切换 + 退出(每张 3D 地图都有) -->
+    <div class="map-controls">
+      <RegionSwitch />
+      <ExitButton />
+    </div>
 
     <!-- 右上"底图/图层/工具"按钮组 -->
     <FloatingControls :active-key="activeControl" @toggle="onToggleControl" />
@@ -71,19 +77,25 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import ModelViewer from '../components/ModelViewer.vue'
 import TopBar from '../components/layout/TopBar.vue'
 import StatusBar from '../components/layout/StatusBar.vue'
 import FloatingControls from '../components/layout/FloatingControls.vue'
 import RightControls from '../components/layout/RightControls.vue'
 import ToolsMenu from '../components/layout/ToolsMenu.vue'
+import RegionSwitch from '../components/layout/RegionSwitch.vue'
+import ExitButton from '../components/layout/ExitButton.vue'
+import { currentRegion, REGIONS } from '../store/region.js'
 import OverviewPanel from '../components/pv/OverviewPanel.vue'
 import PVModeControls from '../components/pv/PVModeControls.vue'
 import RoofInfoPanel from '../components/pv/RoofInfoPanel.vue'
 import MultiSelectModal from '../components/pv/MultiSelectModal.vue'
 
 const modelRef = ref(null)
+
+// 当前社区是否叠加数据(石岗=true,石盘滩=false)
+const showData = computed(() => REGIONS[currentRegion.value]?.showData)
 
 function onResetView() { modelRef.value && modelRef.value.resetView() }
 function onZoomIn()    { modelRef.value && modelRef.value.zoomIn() }
@@ -195,6 +207,17 @@ onBeforeUnmount(() => {
   position: absolute;
   inset: 0;
   z-index: 1;
+}
+
+/* 地域切换 + 退出:左下角 */
+.map-controls {
+  position: absolute;
+  left: 16px;
+  bottom: 46px;
+  z-index: 95;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 /* 选中屋顶后给场景压一层半透明黑;不挡指针(还能继续点其它屋顶) */

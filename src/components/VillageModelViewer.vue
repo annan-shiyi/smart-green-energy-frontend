@@ -18,10 +18,11 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import * as Cesium from 'cesium'
 import { mapMarkers } from '../data/villageData.js'
 import { applyTiandituBasemap } from '../utils/tianditu.js'
+import { currentRegion, REGIONS } from '../store/region.js'
 import markerFire from '../assets/village/marker-fire.png'
 import markerCar from '../assets/village/marker-car.png'
 import markerMonitor from '../assets/village/marker-monitor.png'
@@ -30,15 +31,14 @@ import iconCamera from '../assets/village/icon-camera.png'
 import iconCar from '../assets/village/icon-car.png'
 import iconWalking from '../assets/village/icon-walking.png'
 
-// 村情村貌 3D 模型地址,从 .env 读取(VITE_TILESET_SHIPANTAN)
-const TILESET_URL = import.meta.env.VITE_TILESET_SHIPANTAN
+// 当前社区配置(模型地址 / 是否叠加数据 / 垂直偏移),从 store 读取
+function regionCfg() {
+  return REGIONS[currentRegion.value] || REGIONS.shigang
+}
 
 // 村边界线 KMZ 文件(把主管发的 石盘滩.kmz 放到 public/ 目录,改名为 shipantan.kmz)
+// 仅在叠加数据的社区(石岗)显示
 const BOUNDARY_KMZ_URL = '/shipantan.kmz'
-
-// 模型整体垂直偏移(米)。负值 = 往下沉,让模型边缘贴合天地图卫星底图。
-// 调试口诀:还悬空就更负(如 -200),沉太深陷进地里就往 0 调
-const MODEL_HEIGHT_OFFSET = -250
 
 const emit = defineEmits(['camera-change'])
 
@@ -51,6 +51,8 @@ let tileset = null
 let isInitialized = false
 // 模型包围球,用于初始定位与"回到默认视角"
 let homeBoundingSphere = null
+// 数据图层引用,切换社区时需整体清除
+const poiEntities = []
 
 // 坐标拾取工具状态
 const pickMode = ref(false)
@@ -152,7 +154,9 @@ function applyHeightOffset(ts, dh) {
 async function loadTileset() {
   if (tileset) return
 
-  tileset = await Cesium.Cesium3DTileset.fromUrl(TILESET_URL, {
+  const cfg = regionCfg()
+
+  tileset = await Cesium.Cesium3DTileset.fromUrl(cfg.tileset, {
     maximumScreenSpaceError: 1,
     skipLevelOfDetail: true,
     immediatelyLoadDesiredLevelOfDetail: false,
@@ -166,7 +170,7 @@ async function loadTileset() {
   viewer.scene.primitives.add(tileset)
 
   // 模型整体下沉,贴合天地图卫星底图
-  applyHeightOffset(tileset, MODEL_HEIGHT_OFFSET)
+  applyHeightOffset(tileset, cfg.heightOffset)
 
   if (tileset.readyEvent && typeof tileset.readyEvent.addEventListener === 'function') {
     tileset.readyEvent.addEventListener(() => {
@@ -177,17 +181,52 @@ async function loadTileset() {
   // 新模型坐标未知:用包围球自动定位
   homeBoundingSphere = tileset.boundingSphere
 
-  // 入场动画:从高空俯视俯冲下来,倾斜到 45°
+  // 入场动画:从高空俯视俯冲下来
   entranceFlyTo()
 
-  // POI 占位标记(锚在模型上)
-  addMarkers()
-
-  // 叠加村边界线(主管发的 石盘滩.kmz)
-  loadBoundary()
+  // 数据图层:仅在主社区(石岗)叠加;石盘滩只放模型
+  if (cfg.showData) {
+    addMarkers()    // POI 占位标记(锚在模型上)
+    loadBoundary()  // 村边界线
+  }
 
   viewer.scene.requestRender()
 }
+
+// 切换社区:拆掉当前模型 + 数据图层,加载新社区模型
+async function switchRegion() {
+  if (!viewer || viewer.isDestroyed()) return
+  loading.value = true
+  error.value = ''
+  try {
+    // 1) 移除旧模型
+    if (tileset) {
+      viewer.scene.primitives.remove(tileset)
+      tileset = null
+    }
+    // 2) 移除旧数据图层(POI + 村界)
+    poiEntities.forEach((e) => viewer.entities.remove(e))
+    poiEntities.length = 0
+    if (boundaryDataSource) {
+      viewer.dataSources.remove(boundaryDataSource, true)
+      boundaryDataSource = null
+    }
+    homeBoundingSphere = null
+
+    // 3) 加载新社区模型(loadTileset 内部按配置决定是否叠加数据)
+    await loadTileset()
+    loading.value = false
+  } catch (e) {
+    console.error('[VillageModelViewer] 切换社区失败:', e)
+    loading.value = false
+    error.value = '模型加载失败,请检查 3D Tiles 地址或跨域配置'
+  }
+}
+
+// 监听社区切换
+watch(currentRegion, () => {
+  switchRegion()
+})
 
 // 加载并样式化村边界线。Cesium 自带 KmlDataSource,可直接读 .kmz(压缩的 kml)
 let boundaryDataSource = null
@@ -308,10 +347,10 @@ async function addMarkers() {
     if (!viewer || viewer.isDestroyed()) return
     const ratio = canvas.width / canvas.height
     const dispH = 56
-    viewer.entities.add({
+    const ent = viewer.entities.add({
       id: `poi-${m.id}`,
-      // 加上 MODEL_HEIGHT_OFFSET,让图标跟着下沉后的模型走,不再悬空
-      position: Cesium.Cartesian3.fromDegrees(m.lng, m.lat, m.height + MODEL_HEIGHT_OFFSET),
+      // 加上当前社区的垂直偏移,让图标跟着下沉后的模型走,不再悬空
+      position: Cesium.Cartesian3.fromDegrees(m.lng, m.lat, m.height + regionCfg().heightOffset),
       billboard: {
         image: canvas,
         width: dispH * ratio,
@@ -322,6 +361,7 @@ async function addMarkers() {
       },
       properties: { kind: 'poi', type: m.type }
     })
+    poiEntities.push(ent)
   }
   viewer.scene.requestRender()
 }
@@ -492,6 +532,7 @@ onBeforeUnmount(() => {
   isInitialized = false
   homeBoundingSphere = null
   pickEntities.length = 0
+  poiEntities.length = 0
   boundaryDataSource = null
 })
 </script>

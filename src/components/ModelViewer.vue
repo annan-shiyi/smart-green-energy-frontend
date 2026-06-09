@@ -22,12 +22,14 @@ import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import * as Cesium from 'cesium'
 import { roofList } from '../data/mockRoofs.js'
 import { applyTiandituBasemap } from '../utils/tianditu.js'
+import { currentRegion, REGIONS } from '../store/region.js'
 import houseIcon from '../assets/icons/house.png'
 import houseRing from '../assets/icons/house-ring.svg'
 
-// 模型地址,从 .env 读取。当前统一用石盘滩,与村情村貌保持一致(VITE_TILESET_SHIPANTAN)
-// 注:VITE_TILESET_SHIGANG(石岗)暂时保留,待"村庄切换"功能上线后再用
-const TILESET_URL = import.meta.env.VITE_TILESET_SHIPANTAN
+// 当前社区配置(全局切换):石岗=带数据,石盘滩=纯模型。切换时整体重载模型。
+function regionCfg() {
+  return REGIONS[currentRegion.value] || REGIONS.shigang
+}
 
 // 石岗村模型中心点(用户指定)
 const MODEL_CENTER = {
@@ -35,10 +37,6 @@ const MODEL_CENTER = {
   lat: 30.400947,
   height: 1200
 }
-
-// 模型整体垂直偏移(米)。负值 = 往下沉,让模型边缘贴合天地图卫星底图。
-// 调试口诀:还悬空就更负,沉太深陷进地里就往 0 调。当前为石盘滩模型,起调 -250
-const MODEL_HEIGHT_OFFSET = -250
 
 const props = defineProps({
   selectedRoof: { type: Object, default: null },
@@ -184,7 +182,7 @@ async function loadTileset() {
   // - immediatelyLoadDesiredLevelOfDetail = false :有什么瓦片就先用什么,不等目标 LOD
   // - skipLevelOfDetail = false :仍然逐级加载,保证最终能到 L17
   // - maximumScreenSpaceError = 1 :接近最高清晰度,但比 0.8 性能宽松,画面更快稳定
-  tileset = await Cesium.Cesium3DTileset.fromUrl(TILESET_URL, {
+  tileset = await Cesium.Cesium3DTileset.fromUrl(regionCfg().tileset, {
     maximumScreenSpaceError: 1,
     skipLevelOfDetail: true,
     immediatelyLoadDesiredLevelOfDetail: false,
@@ -199,7 +197,7 @@ async function loadTileset() {
   viewer.scene.primitives.add(tileset)
 
   // 模型整体下沉,贴合天地图卫星底图
-  applyHeightOffset(tileset, MODEL_HEIGHT_OFFSET)
+  applyHeightOffset(tileset, regionCfg().heightOffset)
 
   if (tileset.readyEvent && typeof tileset.readyEvent.addEventListener === 'function') {
     tileset.readyEvent.addEventListener(() => {
@@ -248,7 +246,8 @@ async function loadTileset() {
 
   // 初始即要求显示屋顶标记(如低碳生活页 show-markers=true):模型就绪后立即渲染。
   // watch(showMarkers) 非 immediate,当它恒为 true 时不会触发,这里兜底渲染。
-  if (props.showMarkers) {
+  // 仅在叠加数据的社区(石岗)渲染;石盘滩为纯模型,不显示屋顶数据。
+  if (props.showMarkers && regionCfg().showData) {
     if (!markerEntityMap.size) renderRoofMarkers()
     setMarkersVisible(true)
   }
@@ -256,6 +255,43 @@ async function loadTileset() {
   // 让按需渲染管线立刻刷一次
   viewer.scene.requestRender()
 }
+
+// ---------------- 全局社区切换:整体重载模型 ----------------
+function clearMarkers() {
+  if (!viewer || viewer.isDestroyed()) return
+  markerEntityMap.forEach(({ ring1, ring2, house }) => {
+    viewer.entities.remove(ring1)
+    viewer.entities.remove(ring2)
+    viewer.entities.remove(house)
+  })
+  markerEntityMap.clear()
+}
+
+async function switchRegion() {
+  if (!viewer || viewer.isDestroyed()) return
+  loading.value = true
+  error.value = ''
+  try {
+    stopMarkerAnim()
+    clearMarkers()
+    if (tileset) {
+      viewer.scene.primitives.remove(tileset)
+      tileset = null
+    }
+    // 让新模型重新居中
+    hasInitialFlyTo = false
+    await loadTileset()
+    loading.value = false
+  } catch (e) {
+    console.error('[ModelViewer] 切换社区失败:', e)
+    loading.value = false
+    error.value = '模型加载失败,请检查 3D Tiles 地址或跨域配置'
+  }
+}
+
+watch(currentRegion, () => {
+  switchRegion()
+})
 
 // ---------------- 相机坐标上报 ----------------
 
@@ -281,7 +317,7 @@ function emitCameraInfo() {
 // 每个屋顶 = ring1 + ring2(相位差 1s) + house
 // ring 的 size / alpha 用 Cesium CallbackProperty 按时间脉动 — 完美还原原 SVG 动画
 // 动画期间通过 requestAnimationFrame 不断 requestRender,只在 pvMode 开时跑
-//做这个好累 累死了
+// 做这个好累 累死了
 const RING_BASE_NORMAL = 100
 const RING_BASE_ACTIVE = 200      // 选中态比常态大近一倍 -> 视觉冲击
 const HOUSE_SIZE_NORMAL = 35
@@ -353,8 +389,8 @@ function renderRoofMarkers() {
   roofList.forEach((roof) => {
     if (!roof.center) return
     const { lng, lat, height } = roof.center
-    // 加上 MODEL_HEIGHT_OFFSET,让图标跟着下沉后的模型走,不再悬空
-    const pos = Cesium.Cartesian3.fromDegrees(lng, lat, height + 6 + MODEL_HEIGHT_OFFSET)
+    // 加上当前社区的垂直偏移,让图标跟着下沉后的模型走,不再悬空
+    const pos = Cesium.Cartesian3.fromDegrees(lng, lat, height + 6 + regionCfg().heightOffset)
 
     const ring1 = buildRing(roof, pos, 0,   'ring1') // 主圈,起始相位 0
     const ring2 = buildRing(roof, pos, 1.0, 'ring2') // 副圈,相位差 1s
@@ -415,10 +451,11 @@ function highlightMarker(activeId) {
 }
 
 // watch:进入/退出光伏测算模式 → 渲染并控制标记可见性
+// 石盘滩为纯模型,即便 showMarkers=true 也不渲染屋顶数据
 watch(
   () => props.showMarkers,
   (show) => {
-    if (show) {
+    if (show && regionCfg().showData) {
       if (!markerEntityMap.size) renderRoofMarkers()
       else setMarkersVisible(true)
     } else {
@@ -433,7 +470,8 @@ function flyToRoof(roof) {
   if (!viewer || viewer.isDestroyed() || !roof || !roof.center) return
   const { lng, lat, height } = roof.center
   viewer.camera.flyTo({
-    destination: Cesium.Cartesian3.fromDegrees(lng, lat - 0.0008, height + 220 + MODEL_HEIGHT_OFFSET),
+    // 垂直俯瞰:相机正对屋顶正上方(不再做 lat 横向偏移,否则屋顶会被顶到画面上方)
+    destination: Cesium.Cartesian3.fromDegrees(lng, lat, height + 220 + regionCfg().heightOffset),
     orientation: {
       heading: Cesium.Math.toRadians(0),
       pitch: Cesium.Math.toRadians(-90), // 正摄(垂直俯瞰)

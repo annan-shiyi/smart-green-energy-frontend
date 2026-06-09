@@ -11,34 +11,37 @@
       />
     </div>
 
-    <!-- 左右暗角阴影:衬在两侧面板后面 -->
-    <div class="scene-mask"></div>
+    <!-- 数据图层仅主社区(石岗)展示;石盘滩为纯模型 -->
+    <template v-if="showData">
+      <!-- 左右暗角阴影:衬在两侧面板后面 -->
+      <div class="scene-mask"></div>
 
-    <!-- 选中屋顶 / 多选模态时压暗场景 -->
-    <div v-if="selectedRoof || multiSelectOpen" class="scene-dim"></div>
+      <!-- 选中屋顶 / 多选模态时压暗场景 -->
+      <div v-if="selectedRoof || multiSelectOpen" class="scene-dim"></div>
 
-    <!-- 左上:光伏铺设概况(复用) -->
-    <OverviewPanel />
+      <!-- 左上:光伏铺设概况(复用) -->
+      <OverviewPanel />
 
-    <!-- 左下:电量测算(新) -->
-    <ElectricityPanel @open-multi-select="onOpenMultiSelect" />
+      <!-- 左下:电量测算(新) -->
+      <ElectricityPanel @open-multi-select="onOpenMultiSelect" />
 
-    <!-- 右上:经济测算(新) -->
-    <EconomyPanel />
+      <!-- 右上:经济测算(新) -->
+      <EconomyPanel />
 
-    <!-- 选中屋顶详情(复用) -->
-    <RoofInfoPanel
-      v-if="selectedRoof && !multiSelectOpen"
-      :roof="selectedRoof"
-      placement="eco"
-      @close="selectedRoof = null"
-    />
+      <!-- 选中屋顶详情(复用) -->
+      <RoofInfoPanel
+        v-if="selectedRoof && !multiSelectOpen"
+        :roof="selectedRoof"
+        placement="eco"
+        @close="selectedRoof = null"
+      />
 
-    <!-- 屋面多选测算模态(复用) -->
-    <MultiSelectModal
-      v-if="multiSelectOpen"
-      @close="multiSelectOpen = false"
-    />
+      <!-- 屋面多选测算模态(复用) -->
+      <MultiSelectModal
+        v-if="multiSelectOpen"
+        @close="multiSelectOpen = false"
+      />
+    </template>
 
     <!-- 底部导航(环境感知/碳排碳汇/智慧绿能) -->
     <div class="bottom-nav-wrap">
@@ -73,19 +76,28 @@
       :fps="perf.fps"
     />
 
+    <!-- 地域切换 + 退出(每张 3D 地图都有) -->
+    <div class="map-controls">
+      <RegionSwitch />
+      <ExitButton />
+    </div>
+
     <!-- 顶部栏(共用,最后渲染) -->
     <TopBar />
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import ModelViewer from '../components/ModelViewer.vue'
 import TopBar from '../components/layout/TopBar.vue'
 import FloatingControls from '../components/layout/FloatingControls.vue'
 import ToolsMenu from '../components/layout/ToolsMenu.vue'
 import RightControls from '../components/layout/RightControls.vue'
 import StatusBar from '../components/layout/StatusBar.vue'
+import RegionSwitch from '../components/layout/RegionSwitch.vue'
+import ExitButton from '../components/layout/ExitButton.vue'
+import { currentRegion, REGIONS } from '../store/region.js'
 import OverviewPanel from '../components/pv/OverviewPanel.vue'
 import RoofInfoPanel from '../components/pv/RoofInfoPanel.vue'
 import MultiSelectModal from '../components/pv/MultiSelectModal.vue'
@@ -98,6 +110,9 @@ const modelRef = ref(null)
 const selectedRoof = ref(null)
 const multiSelectOpen = ref(false)
 const activeControl = ref('')
+
+// 当前社区是否叠加数据(石岗=true,石盘滩=false)
+const showData = computed(() => REGIONS[currentRegion.value]?.showData)
 
 function onResetView() { modelRef.value && modelRef.value.resetView() }
 function onZoomIn()    { modelRef.value && modelRef.value.zoomIn() }
@@ -157,6 +172,16 @@ onBeforeUnmount(() => { cancelAnimationFrame(rafId) })
   position: absolute;
   inset: 0;
   z-index: 1;
+}
+/* 地域切换 + 退出:左下角 */
+.map-controls {
+  position: absolute;
+  left: 16px;
+  bottom: 46px;
+  z-index: 95;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 /* 左右暗角阴影(在模型之上、面板之下) */
 .scene-mask {

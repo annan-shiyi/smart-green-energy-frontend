@@ -15,7 +15,14 @@
       <!-- 左右暗角蒙版:衬在两侧面板后面,中间模型保持清晰 -->
       <div class="scene-mask"></div>
 
-      <VillageOverlay @nav-select="onNavSelect" />
+      <!-- 地域切换 + 退出:左下角,两个社区都常驻 -->
+      <div class="map-controls">
+        <RegionSwitch />
+        <ExitButton />
+      </div>
+
+      <!-- 数据面板仅主社区(石岗)展示;石盘滩为纯模型 -->
+      <VillageOverlay v-if="showData" @nav-select="onNavSelect" />
 
       <!-- 右下控件:指南针 / 全屏 / 放大 / 缩小 -->
       <RightControls
@@ -44,16 +51,22 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import VillageModelViewer from '../components/VillageModelViewer.vue'
 import TopBar from '../components/layout/TopBar.vue'
 import RightControls from '../components/layout/RightControls.vue'
 import StatusBar from '../components/layout/StatusBar.vue'
+import RegionSwitch from '../components/layout/RegionSwitch.vue'
+import ExitButton from '../components/layout/ExitButton.vue'
 import VillageGlobe from '../components/village/VillageGlobe.vue'
 import VillageOverlay from '../components/village/VillageOverlay.vue'
 import { villageView } from '../store/nav.js'
+import { currentRegion, REGIONS } from '../store/region.js'
 
 const modelRef = ref(null)
+
+// 当前社区是否叠加数据(石岗=true,石盘滩=false)
+const showData = computed(() => REGIONS[currentRegion.value]?.showData)
 
 // 点地球上的可点点位 → 进入 3D 模型页
 function enterModel() {
@@ -130,6 +143,17 @@ onBeforeUnmount(() => {
   position: absolute;
   inset: 0;
   z-index: 1;
+}
+
+/* 地域切换 + 退出:左下角(贴在「组织建设」面板下方) */
+.map-controls {
+  position: absolute;
+  left: 16px;
+  bottom: 46px;
+  z-index: 95;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 /* 左右暗角蒙版:中间透明保留模型,两侧压暗衬托面板 */

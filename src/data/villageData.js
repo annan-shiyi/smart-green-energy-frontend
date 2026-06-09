@@ -73,7 +73,7 @@ export const bottomNavItems = [
 // clickable: true 的点可点进 3D 模型页;其余为装饰光点。
 // 真实地球图到位后,按图微调这些百分比即可。
 export const globePoints = [
-  { id: 'shipantan', label: '石盘滩社区', top: '42%', left: '54%', clickable: true },
+  { id: 'shigang', label: '石岗社区', top: '42%', left: '54%', clickable: true },
   { id: 'p2', top: '30%', left: '40%', clickable: false },
   { id: 'p3', top: '24%', left: '60%', clickable: false },
   { id: 'p4', top: '50%', left: '36%', clickable: false },
