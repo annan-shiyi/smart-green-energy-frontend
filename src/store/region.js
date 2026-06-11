@@ -24,11 +24,38 @@ export const REGIONS = {
     tileset: import.meta.env.VITE_TILESET_SHIPANTAN,
     showData: false,
     heightOffset: -250
+  },
+  yongpingzhai: {
+    key: 'yongpingzhai',
+    name: '永平寨',
+    tileset: import.meta.env.VITE_TILESET_YONGPINGZHAI,
+    showData: false, // 纯模型
+    heightOffset: -250
+  },
+  shizikoucun: {
+    key: 'shizikoucun',
+    name: '十字口村',
+    tileset: import.meta.env.VITE_TILESET_SHIZIKOUCUN,
+    showData: false, // 纯模型
+    heightOffset: -250
+  },
+  tongguanyizhen: {
+    key: 'tongguanyizhen',
+    name: '铜罐驿镇',
+    tileset: import.meta.env.VITE_TILESET_TONGGUANYIZHEN,
+    showData: false, // 纯模型
+    heightOffset: -250
   }
 }
 
 // 切换控件用的顺序列表
-export const REGION_LIST = [REGIONS.shigang, REGIONS.shipantan]
+export const REGION_LIST = [
+  REGIONS.shigang,
+  REGIONS.shipantan,
+  REGIONS.yongpingzhai,
+  REGIONS.shizikoucun,
+  REGIONS.tongguanyizhen
+]
 
 // 当前社区 key。默认石岗(主社区)。
 export const currentRegion = ref('shigang')
