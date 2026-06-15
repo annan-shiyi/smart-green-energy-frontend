@@ -23,6 +23,7 @@ import * as Cesium from 'cesium'
 import { roofList } from '../data/mockRoofs.js'
 import { applyTiandituBasemap } from '../utils/tianditu.js'
 import { currentRegion, REGIONS } from '../store/region.js'
+import { addBoundaries, removeBoundaries } from '../utils/boundary.js'
 import houseIcon from '../assets/icons/house.png'
 import houseRing from '../assets/icons/house-ring.svg'
 
@@ -59,6 +60,7 @@ let viewer = null
 let tileset = null
 let isInitialized = false
 let hasInitialFlyTo = false
+let boundaryDataSources = []
 let pickHandler = null
 let selectHandler = null
 const pickEntities = []
@@ -252,8 +254,17 @@ async function loadTileset() {
     setMarkersVisible(true)
   }
 
+  // 村界线:每个社区显示各自的边界,与"是否叠数据"无关
+  loadBoundary()
+
   // 让按需渲染管线立刻刷一次
   viewer.scene.requestRender()
+}
+
+// 加载当前社区的村界线(可多个文件,样式与加载逻辑见 utils/boundary.js)
+async function loadBoundary() {
+  if (boundaryDataSources.length) return
+  boundaryDataSources = await addBoundaries(viewer, regionCfg().boundaryKmz)
 }
 
 // ---------------- 全局社区切换:整体重载模型 ----------------
@@ -274,6 +285,8 @@ async function switchRegion() {
   try {
     stopMarkerAnim()
     clearMarkers()
+    removeBoundaries(viewer, boundaryDataSources)
+    boundaryDataSources = []
     if (tileset) {
       viewer.scene.primitives.remove(tileset)
       tileset = null
@@ -669,6 +682,7 @@ onBeforeUnmount(() => {
   tileset = null
   isInitialized = false
   hasInitialFlyTo = false
+  boundaryDataSources = []
   pickEntities.length = 0
   markerEntityMap.clear()
 })

@@ -23,6 +23,7 @@ import * as Cesium from 'cesium'
 import { mapMarkers } from '../data/villageData.js'
 import { applyTiandituBasemap } from '../utils/tianditu.js'
 import { currentRegion, REGIONS } from '../store/region.js'
+import { addBoundaries, removeBoundaries } from '../utils/boundary.js'
 import markerFire from '../assets/village/marker-fire.png'
 import markerCar from '../assets/village/marker-car.png'
 import markerMonitor from '../assets/village/marker-monitor.png'
@@ -35,10 +36,6 @@ import iconWalking from '../assets/village/icon-walking.png'
 function regionCfg() {
   return REGIONS[currentRegion.value] || REGIONS.shigang
 }
-
-// 村边界线 KMZ 文件(把主管发的 石盘滩.kmz 放到 public/ 目录,改名为 shipantan.kmz)
-// 仅在叠加数据的社区(石岗)显示
-const BOUNDARY_KMZ_URL = '/shipantan.kmz'
 
 const emit = defineEmits(['camera-change'])
 
@@ -184,11 +181,13 @@ async function loadTileset() {
   // 入场动画:从高空俯视俯冲下来
   entranceFlyTo()
 
-  // 数据图层:仅在主社区(石岗)叠加;石盘滩只放模型
+  // 数据图层(POI):仅在主社区(石岗)叠加;纯模型社区不加
   if (cfg.showData) {
-    addMarkers()    // POI 占位标记(锚在模型上)
-    loadBoundary()  // 村边界线
+    addMarkers() // POI 占位标记(锚在模型上)
   }
+
+  // 村界线:每个社区显示各自的边界,与"是否叠数据"无关
+  loadBoundary()
 
   viewer.scene.requestRender()
 }
@@ -207,10 +206,8 @@ async function switchRegion() {
     // 2) 移除旧数据图层(POI + 村界)
     poiEntities.forEach((e) => viewer.entities.remove(e))
     poiEntities.length = 0
-    if (boundaryDataSource) {
-      viewer.dataSources.remove(boundaryDataSource, true)
-      boundaryDataSource = null
-    }
+    removeBoundaries(viewer, boundaryDataSources)
+    boundaryDataSources = []
     homeBoundingSphere = null
 
     // 3) 加载新社区模型(loadTileset 内部按配置决定是否叠加数据)
@@ -228,42 +225,11 @@ watch(currentRegion, () => {
   switchRegion()
 })
 
-// 加载并样式化村边界线。Cesium 自带 KmlDataSource,可直接读 .kmz(压缩的 kml)
-let boundaryDataSource = null
+// 加载当前社区的村界线(可多个文件,样式与加载逻辑见 utils/boundary.js)
+let boundaryDataSources = []
 async function loadBoundary() {
-  if (boundaryDataSource) return
-  try {
-    const ds = await Cesium.KmlDataSource.load(BOUNDARY_KMZ_URL, {
-      camera: viewer.scene.camera,
-      canvas: viewer.scene.canvas,
-      clampToGround: true
-    })
-    if (!viewer || viewer.isDestroyed()) return
-    boundaryDataSource = ds
-    viewer.dataSources.add(ds)
-
-    // 统一描边样式:青色边界线 + 半透明填充
-    const lineColor = Cesium.Color.fromCssColorString('#40e0d0')
-    ds.entities.values.forEach((ent) => {
-      if (ent.polygon) {
-        ent.polygon.material = lineColor.withAlpha(0.12)
-        ent.polygon.outline = true
-        ent.polygon.outlineColor = lineColor
-        ent.polygon.outlineWidth = 3
-        ent.polygon.height = undefined
-        ent.polygon.heightReference = Cesium.HeightReference.CLAMP_TO_GROUND
-      }
-      if (ent.polyline) {
-        ent.polyline.material = lineColor
-        ent.polyline.width = 3
-        ent.polyline.clampToGround = true
-      }
-    })
-    viewer.scene.requestRender()
-  } catch (e) {
-    // 边界文件没放/加载失败时不影响模型显示,仅告警
-    console.warn('[VillageModelViewer] 村边界 KMZ 加载失败(确认 public/shipantan.kmz 是否存在):', e)
-  }
+  if (boundaryDataSources.length) return
+  boundaryDataSources = await addBoundaries(viewer, regionCfg().boundaryKmz)
 }
 
 // 入场过渡:先把相机放到更高更远的俯视位,再飞向正常视角
@@ -305,7 +271,7 @@ function loadImage(src) {
 }
 
 // 把"边框图 + 内部图标"画到一张 canvas 上(Cesium billboard 只能用单张图)。
-// 内部图标先用 source-in 重新着色成 tintColor,再叠到边框中央。
+// 内部图标先用 source-in 重新着色成 tintColor,再叠到边框中央。 
 async function buildMarkerImage(frameSrc, iconSrc, tintColor) {
   const [frame, icon] = await Promise.all([loadImage(frameSrc), loadImage(iconSrc)])
   const w = frame.naturalWidth || 96
@@ -533,7 +499,7 @@ onBeforeUnmount(() => {
   homeBoundingSphere = null
   pickEntities.length = 0
   poiEntities.length = 0
-  boundaryDataSource = null
+  boundaryDataSources = []
 })
 </script>
 
