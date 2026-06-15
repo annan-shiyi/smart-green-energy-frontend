@@ -1,7 +1,8 @@
 import * as Cesium from 'cesium'
 
-// 边界线统一描边样式:青色边界 + 半透明填充,贴地
-const LINE_COLOR = Cesium.Color.fromCssColorString('#40e0d0')
+// 边界线样式(主管要求:只要边界、不要填充、红色粗线)
+const LINE_COLOR = Cesium.Color.fromCssColorString('#ff2d2d')
+const LINE_WIDTH = 3
 
 // 加载并样式化村界线 KMZ/KML(Cesium 自带 KmlDataSource 可直接读 .kmz / .kml)。
 // 成功返回 dataSource;url 为空或加载失败返回 null(不影响模型显示,仅告警)。
@@ -17,20 +18,37 @@ export async function addBoundary(viewer, url) {
     if (!viewer || viewer.isDestroyed()) return null
     viewer.dataSources.add(ds)
 
+    // 多边形:去掉填充和默认 1px 描边(Cesium polygon outlineWidth 在多数浏览器被锁 1px),
+    // 改用「贴地红色粗线」勾出边界,这样线宽可控、不填充。
+    const rings = []
     ds.entities.values.forEach((ent) => {
       if (ent.polygon) {
-        ent.polygon.material = LINE_COLOR.withAlpha(0.12)
-        ent.polygon.outline = true
-        ent.polygon.outlineColor = LINE_COLOR
-        ent.polygon.outlineWidth = 3
-        ent.polygon.height = undefined
-        ent.polygon.heightReference = Cesium.HeightReference.CLAMP_TO_GROUND
+        try {
+          const h = ent.polygon.hierarchy && ent.polygon.hierarchy.getValue(Cesium.JulianDate.now())
+          const positions = h && (h.positions || h)
+          if (positions && positions.length) rings.push(positions)
+        } catch (_) {}
+        ent.polygon.fill = false
+        ent.polygon.outline = false
       }
       if (ent.polyline) {
         ent.polyline.material = LINE_COLOR
-        ent.polyline.width = 3
+        ent.polyline.width = LINE_WIDTH
         ent.polyline.clampToGround = true
       }
+    })
+    // 多边形外环 → 闭合的红色贴地粗线
+    rings.forEach((positions) => {
+      const ring = positions.slice()
+      ring.push(positions[0]) // 闭合
+      ds.entities.add({
+        polyline: {
+          positions: ring,
+          width: LINE_WIDTH,
+          material: LINE_COLOR,
+          clampToGround: true
+        }
+      })
     })
     viewer.scene.requestRender()
     return ds
