@@ -22,7 +22,9 @@
       </div>
 
       <!-- 图层开关(右上):仅有栋号数据的社区(石岗)显示 -->
-      <div v-if="showData" class="layer-controls">
+      <!-- 栋号显示开关 + 采集工具:代码保留,暂不在界面显示(SHOW_DONGHAO_UI=false);
+           栋号标签本身仍会渲染,如需重新露出这块控件把开关改回 true 即可 -->
+      <div v-if="showData && SHOW_DONGHAO_UI" class="layer-controls">
         <button class="layer-btn" :class="{ active: donghaoOn }" @click="onToggleDonghao">
           <span class="dot" :class="{ on: donghaoOn }"></span>栋号显示
         </button>
@@ -100,6 +102,10 @@ function onZoomIn()    { modelRef.value && modelRef.value.zoomIn() }
 function onZoomOut()   { modelRef.value && modelRef.value.zoomOut() }
 
 // ---------------- 栋号图层 / 采集工具 ----------------
+// 右上「栋号显示」开关 + 采集工具的 UI 总开关。false=界面不显示这块控件
+//(但栋号标签仍会渲染)。以后要重新露出来改回 true 即可。
+const SHOW_DONGHAO_UI = false
+
 const donghaoOn = ref(true)
 function onToggleDonghao() {
   if (modelRef.value) donghaoOn.value = modelRef.value.toggleDonghao()
