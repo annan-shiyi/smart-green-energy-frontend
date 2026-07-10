@@ -21,6 +21,22 @@
         <ExitButton />
       </div>
 
+      <!-- 图层开关(右上):仅有栋号数据的社区(石岗)显示 -->
+      <div v-if="showData" class="layer-controls">
+        <button class="layer-btn" :class="{ active: donghaoOn }" @click="onToggleDonghao">
+          <span class="dot" :class="{ on: donghaoOn }"></span>栋号显示
+        </button>
+
+        <!-- 栋号采集工具:仅开发模式可见,用于逐栋标注、导出坐标 -->
+        <div v-if="isDev" class="collect-tools">
+          <button class="ct-btn" :class="{ active: collectOn }" @click="onToggleCollect">
+            {{ collectOn ? '● 采集中(点楼)' : '栋号采集' }}
+          </button>
+          <button class="ct-btn" @click="onUndoCollect">撤销</button>
+          <button class="ct-btn" @click="onExportDonghao">导出JSON</button>
+        </div>
+      </div>
+
       <!-- 数据面板仅主社区(石岗)展示;石盘滩为纯模型 -->
       <VillageOverlay v-if="showData" @nav-select="onNavSelect" />
 
@@ -82,6 +98,21 @@ function onNavSelect(key) {
 function onResetView() { modelRef.value && modelRef.value.resetView() }
 function onZoomIn()    { modelRef.value && modelRef.value.zoomIn() }
 function onZoomOut()   { modelRef.value && modelRef.value.zoomOut() }
+
+// ---------------- 栋号图层 / 采集工具 ----------------
+const donghaoOn = ref(true)
+function onToggleDonghao() {
+  if (modelRef.value) donghaoOn.value = modelRef.value.toggleDonghao()
+}
+
+// 采集工具仅在开发模式暴露(生产隐藏)
+const isDev = import.meta.env.DEV
+const collectOn = ref(false)
+function onToggleCollect() {
+  if (modelRef.value) collectOn.value = modelRef.value.toggleCollectMode()
+}
+function onUndoCollect()   { modelRef.value && modelRef.value.undoCollect() }
+function onExportDonghao() { modelRef.value && modelRef.value.exportDonghao() }
 
 function onToggleFullscreen() {
   const el = document.documentElement
@@ -154,6 +185,81 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+/* 图层开关(右上角) */
+.layer-controls {
+  position: absolute;
+  top: 74px;
+  right: 16px;
+  z-index: 96;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.layer-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 13px;
+  background: rgba(28, 37, 49, 0.9);
+  border: 1px solid rgba(101, 160, 200, 0.25);
+  border-radius: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+.layer-btn:hover {
+  color: var(--text);
+  border-color: var(--accent);
+  box-shadow: 0 0 10px rgba(64, 224, 208, 0.2);
+}
+.layer-btn.active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: rgba(64, 224, 208, 0.12);
+}
+.layer-btn .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.25);
+  transition: all 0.18s ease;
+}
+.layer-btn .dot.on {
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent);
+}
+
+/* 栋号采集工具(仅开发模式) */
+.collect-tools {
+  display: flex;
+  gap: 6px;
+}
+.ct-btn {
+  padding: 5px 10px;
+  background: rgba(20, 27, 38, 0.92);
+  border: 1px dashed rgba(192, 57, 43, 0.55);
+  border-radius: 4px;
+  color: #e8b4ad;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.ct-btn:hover {
+  color: #fff;
+  border-color: #c0392b;
+  background: rgba(192, 57, 43, 0.2);
+}
+.ct-btn.active {
+  color: #fff;
+  background: rgba(192, 57, 43, 0.5);
+  border-style: solid;
 }
 
 /* 左右暗角蒙版:中间透明保留模型,两侧压暗衬托面板 */

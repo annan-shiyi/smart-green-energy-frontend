@@ -24,6 +24,7 @@ import { mapMarkers } from '../data/villageData.js'
 import { applyTiandituBasemap } from '../utils/tianditu.js'
 import { currentRegion, REGIONS } from '../store/region.js'
 import { addBoundaries, removeBoundaries } from '../utils/boundary.js'
+import { getBuildingNumbers } from '../data/buildingNumbers.js'
 import markerFire from '../assets/village/marker-fire.png'
 import markerCar from '../assets/village/marker-car.png'
 import markerMonitor from '../assets/village/marker-monitor.png'
@@ -56,6 +57,16 @@ const pickMode = ref(false)
 const pickedPoints = ref([])
 let pickHandler = null
 const pickEntities = []
+
+// 栋号图层(数据驱动:来自 buildingNumbers.js)
+const donghaoEntities = []
+const donghaoVisible = ref(true)
+
+// 栋号采集工具状态(点楼 → 输入栋号 → 导出 JSON)
+const collectMode = ref(false)
+const collected = ref([])
+let collectHandler = null
+const collectEntities = []
 
 async function initCesium() {
   if (isInitialized) return
@@ -189,6 +200,9 @@ async function loadTileset() {
   // 村界线:每个社区显示各自的边界,与"是否叠数据"无关
   loadBoundary()
 
+  // 栋号图层:仅有栋号数据的社区(石岗)会渲染;可通过"栋号显示"开关隐藏
+  addDonghaoLabels()
+
   viewer.scene.requestRender()
 }
 
@@ -203,11 +217,16 @@ async function switchRegion() {
       viewer.scene.primitives.remove(tileset)
       tileset = null
     }
-    // 2) 移除旧数据图层(POI + 村界)
+    // 2) 移除旧数据图层(POI + 村界 + 栋号 + 采集临时标注)
     poiEntities.forEach((e) => viewer.entities.remove(e))
     poiEntities.length = 0
     removeBoundaries(viewer, boundaryDataSources)
     boundaryDataSources = []
+    donghaoEntities.forEach((e) => viewer.entities.remove(e))
+    donghaoEntities.length = 0
+    collectEntities.forEach((e) => viewer.entities.remove(e))
+    collectEntities.length = 0
+    collected.value = []
     homeBoundingSphere = null
 
     // 3) 加载新社区模型(loadTileset 内部按配置决定是否叠加数据)
@@ -484,7 +503,146 @@ function copyToClipboard(text) {
   }
 }
 
-defineExpose({ zoomIn, zoomOut, resetView, togglePickMode, clearPicks, copyAllPicks, pickMode })
+// ---------------- 栋号图层(数据驱动) ----------------
+// 栋号 label 的统一样式(数据图层与采集临时标注共用),bg 传不同色以区分
+function donghaoLabel(text, bgCss) {
+  return {
+    text,
+    font: 'bold 14px "Microsoft YaHei", "PingFang SC", sans-serif',
+    fillColor: Cesium.Color.WHITE,
+    outlineColor: Cesium.Color.fromCssColorString('#0a1a2f'),
+    outlineWidth: 3,
+    style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+    showBackground: true,
+    backgroundColor: Cesium.Color.fromCssColorString(bgCss).withAlpha(0.66),
+    backgroundPadding: new Cesium.Cartesian2(7, 4),
+    verticalOrigin: Cesium.VerticalOrigin.CENTER,
+    horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
+    // 远近缩放:近处正常,拉远后缩小,避免几十个标签互相糊在一起
+    scaleByDistance: new Cesium.NearFarScalar(200, 1.0, 2500, 0.45),
+    disableDepthTestDistance: Number.POSITIVE_INFINITY
+  }
+}
+
+// 按当前社区的栋号数据渲染 label(高度加回社区 heightOffset,与 POI 一致)
+function addDonghaoLabels() {
+  if (!viewer || viewer.isDestroyed()) return
+  const list = getBuildingNumbers(currentRegion.value)
+  if (!list.length) return
+  const off = regionCfg().heightOffset
+  for (const b of list) {
+    const ent = viewer.entities.add({
+      position: Cesium.Cartesian3.fromDegrees(b.lng, b.lat, b.height + off),
+      label: donghaoLabel(b.no, '#0a2f4a'),
+      properties: { kind: 'donghao' }
+    })
+    ent.show = donghaoVisible.value
+    donghaoEntities.push(ent)
+  }
+  viewer.scene.requestRender()
+}
+
+// 显示/隐藏栋号图层
+function setDonghaoVisible(v) {
+  donghaoVisible.value = v
+  donghaoEntities.forEach((e) => (e.show = v))
+  if (viewer && !viewer.isDestroyed()) viewer.scene.requestRender()
+}
+function toggleDonghao() {
+  setDonghaoVisible(!donghaoVisible.value)
+  return donghaoVisible.value
+}
+
+// ---------------- 栋号采集工具(仅供内部标注,不给终端用户) ----------------
+// 开启后:左键点楼顶 → 弹窗输入栋号 → 落一个临时标签并记录坐标;
+// 全部点完点【导出JSON】,把结果粘回 data/buildingNumbers.js。
+function toggleCollectMode() {
+  collectMode.value = !collectMode.value
+  if (!viewer || viewer.isDestroyed()) return collectMode.value
+  if (collectMode.value) {
+    enableCollectHandler()
+    if (containerRef.value) containerRef.value.style.cursor = 'crosshair'
+  } else {
+    disableCollectHandler()
+    if (containerRef.value) containerRef.value.style.cursor = ''
+  }
+  return collectMode.value
+}
+
+function enableCollectHandler() {
+  if (!viewer || collectHandler) return
+  collectHandler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas)
+  collectHandler.setInputAction((click) => {
+    const cartesian = viewer.scene.pickPosition(click.position)
+    if (!Cesium.defined(cartesian)) {
+      console.warn('[栋号采集] 该位置无可拾取深度,请点在楼栋表面上')
+      return
+    }
+    const carto = Cesium.Cartographic.fromCartesian(cartesian)
+    const lng = Cesium.Math.toDegrees(carto.longitude)
+    const lat = Cesium.Math.toDegrees(carto.latitude)
+    const visibleHeight = carto.height
+
+    // 弹窗输入栋号;纯数字自动补"栋"
+    const raw = window.prompt('输入栋号(如 27,自动补"栋";留空/取消跳过):')
+    if (raw == null) return
+    let no = raw.trim()
+    if (!no) return
+    if (!/栋$/.test(no)) no += '栋'
+
+    // 存"原始高度"(减去当前偏移),渲染时再加回 → 与 POI 保持一致、偏移改变也不受影响
+    const off = regionCfg().heightOffset
+    const height = visibleHeight - off
+    collected.value.push({
+      no,
+      lng: +lng.toFixed(7),
+      lat: +lat.toFixed(7),
+      height: +height.toFixed(2)
+    })
+
+    const ent = viewer.entities.add({
+      position: cartesian,
+      label: donghaoLabel(no, '#c0392b') // 采集态用红底区分于正式蓝底
+    })
+    collectEntities.push(ent)
+    console.log(
+      `[栋号采集] ${no} → [${lng.toFixed(7)}, ${lat.toFixed(7)}, ${height.toFixed(2)}]  已采 ${collected.value.length} 栋`
+    )
+    viewer.scene.requestRender()
+  }, Cesium.ScreenSpaceEventType.LEFT_CLICK)
+}
+
+function disableCollectHandler() {
+  if (collectHandler) {
+    collectHandler.destroy()
+    collectHandler = null
+  }
+}
+
+// 撤销上一个采集点
+function undoCollect() {
+  if (!collected.value.length) return
+  collected.value.pop()
+  const ent = collectEntities.pop()
+  if (ent && viewer && !viewer.isDestroyed()) viewer.entities.remove(ent)
+  if (viewer && !viewer.isDestroyed()) viewer.scene.requestRender()
+}
+
+// 导出采集结果 JSON(复制到剪贴板 + 打印),粘回 buildingNumbers.js
+function exportDonghao() {
+  const arr = collected.value.map((b) => ({ no: b.no, lng: b.lng, lat: b.lat, height: b.height }))
+  const txt = JSON.stringify(arr, null, 2)
+  copyToClipboard(txt)
+  console.log(`[栋号采集] 已复制 JSON(共 ${arr.length} 栋):\n${txt}`)
+  return txt
+}
+
+defineExpose({
+  zoomIn, zoomOut, resetView,
+  togglePickMode, clearPicks, copyAllPicks, pickMode,
+  toggleDonghao, donghaoVisible,
+  toggleCollectMode, collectMode, undoCollect, exportDonghao, collected
+})
 
 onMounted(() => {
   initCesium()
@@ -492,6 +650,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   disablePickHandler()
+  disableCollectHandler()
   if (viewer && !viewer.isDestroyed()) viewer.destroy()
   viewer = null
   tileset = null
@@ -500,6 +659,8 @@ onBeforeUnmount(() => {
   pickEntities.length = 0
   poiEntities.length = 0
   boundaryDataSources = []
+  donghaoEntities.length = 0
+  collectEntities.length = 0
 })
 </script>
 

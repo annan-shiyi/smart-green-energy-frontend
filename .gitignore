@@ -13,8 +13,7 @@ dist.rar
 .env.*.local
 
 # 软著申请脚本与周边文件（非前端代码，仅本地保留）
-gen_application_form.py
-gen_software_copyright_docx.py
+gen_*.py
 Svg/
 
 # KMZ 源文件暂存夹(运行用的副本在 public/kmz/,这里只是原始来源)
